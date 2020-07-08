@@ -27,3 +27,7 @@ Statistic stats::solverTime("SolverTime", "Stime");
 Statistic stats::states("States", "States");
 Statistic stats::trueBranches("TrueBranches", "Bt");
 Statistic stats::uncoveredInstructions("UncoveredInstructions", "Iuncov");
+Statistic stats::querySuccTime("QuerySuccTime", "QStime");
+Statistic stats::queryFailTime("QueryFailTime", "QFtime");
+Statistic stats::succQueries("SuccQueries", "SQueries");
+Statistic stats::failQueries("FailQueries", "FQueries");

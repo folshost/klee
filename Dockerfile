@@ -132,3 +132,11 @@ USER klee
 
 # Add KLEE binary directory to PATH
 RUN echo 'export PATH=$PATH:'${BUILD_DIR}'/klee/Release+Asserts/bin' >> /home/klee/.bashrc
+
+# Link klee to /usr/bin so that it can be used by docker run
+USER root
+RUN for exec in ${BUILD_DIR}/klee/Release+Asserts/bin/* ; do ln -s ${exec} /usr/bin/`basename ${exec}`; done
+
+# Link klee to the libkleeRuntest library needed by docker run
+RUN ln -s ${BUILD_DIR}/klee/Release+Asserts/lib/libkleeRuntest.so /usr/lib/libkleeRuntest.so.1.0
+USER klee

@@ -169,6 +169,7 @@ public:
 
   bool merge(const ExecutionState &b);
   void dumpStack(llvm::raw_ostream &out) const;
+  void dumpExecutionState(llvm::raw_ostream &out) const;
 };
 }
 

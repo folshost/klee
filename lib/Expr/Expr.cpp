@@ -216,10 +216,17 @@ ref<Expr> Expr::createFromKind(Kind k, std::vector<CreateArg> args) {
 
   switch(k) {
     case Constant:
-    case Extract:
     case Read:
     default:
       assert(0 && "invalid kind");
+
+    case Extract: 
+      assert(numArgs == 2 && args[0].isExpr() && 
+          args[1].isWidth() && 
+          "invalid args array for Extract opcode");
+      return ExtractExpr::create(args[0].expr, 
+                                 args[0].offset,
+                                 args[1].width);
 
     case NotOptimized:
       assert(numArgs == 1 && args[0].isExpr() &&

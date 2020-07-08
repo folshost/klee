@@ -95,6 +95,8 @@ extern "C" {
    ? (void) (0)                                                         \
    : __assert_fail (#expr, __FILE__, __LINE__, __PRETTY_FUNCTION__))    \
 
+
+
   /* Return true if the given value is symbolic (represented by an
    * expression) in the current state. This is primarily for debugging
    * and writing tests but can also be used to enable prints in replay
@@ -102,6 +104,8 @@ extern "C" {
    */
   unsigned klee_is_symbolic(uintptr_t n);
 
+  unsigned klee_assert_success(int n);
+  unsigned klee_assert_failure(int n);
 
   /* The following intrinsics are primarily intended for internal use
      and may have peculiar semantics. */

@@ -1,4 +1,4 @@
-//===-- Executor.h ----------------------------------------------*- C++ -*-===//
+
 //
 //                     The KLEE Symbolic Virtual Machine
 //
@@ -21,6 +21,12 @@
 #include "klee/Internal/Module/KInstruction.h"
 #include "klee/Internal/Module/KModule.h"
 #include "klee/util/ArrayCache.h"
+#include "llvm/Support/raw_ostream.h"
+#include "VarAnalysis.h"
+#include "DependencyGraph.h"
+
+#include "expr/Lexer.h"
+#include "expr/Parser.h"
 
 #include "llvm/ADT/Twine.h"
 
@@ -73,7 +79,13 @@ namespace klee {
   class TreeStreamWriter;
   template<class T> class ref;
 
-
+  typedef struct stateSnapshot {
+    unsigned inst_id;
+    KInstruction *ki;
+    std::vector<StackFrame> stack;
+    ConstraintManager constraints;
+    std::map<const llvm::Value*, ref<Expr> > memObjs;
+  } snapshot;
 
   /// \todo Add a context object to keep track of data only live
   /// during an instruction step. Should contain addedStates,
@@ -100,7 +112,50 @@ public:
 
   typedef std::pair<ExecutionState*,ExecutionState*> StatePair;
 
+  enum TerminateReason {
+    Abort,
+    Assert,
+    AssertSuccess, 
+    AssertFailure,
+    AssertNotPrecond,
+    InvalidPath,
+    Exec,
+    External,
+    Free,
+    Model,
+    Overflow,
+    Ptr,
+    ReadOnly,
+    ReportError,
+    User,
+    Unhandled
+  };
+
+  enum cores{
+    OR1200
+  };
+public:
+
+  // control signals:
+  bool haltWhenFired;
+  bool fastValidation;
+  int bfsSwitchCounts;
+  int dfsSwitchCounts;
+  int fastValidationCountNotRst;
+  int notRstLimit;
+  int lastValuesCountSame;
+  int validationCount;
+  cores core = OR1200;
+//  const int inputNo = 9;
+  const int inputNo = 13; // or1200
+  
+  bool startChecking;
+  bool executeFlag;
+  bool checkingAssert;
+  bool notAPreCond;
 private:
+  static const char *TerminateReasonNames[];
+
   class TimerInfo;
 
   KModule *kmodule;
@@ -117,16 +172,39 @@ private:
   std::vector<TimerInfo*> timers;
   PTree *processTree;
 
+  // pruneState
+  std::vector<snapshot> snapshotHistory;
+  std::map<std::string, int> pruneBlacklist;
+
+  // coiPrune
+  std::map<unsigned, int> remainInstrSet;
+  std::vector<Var> assertVarSet;
+  std::map<std::string, int> funcNameSet;
+  std::map<std::string, int> remainFuncSet;
+  std::string trackFuncName;
+  std::map<Var, int> independentVars;
+  std::map<Var, int> carryVars;
+  std::map<Var, int> independentVarsFromAssert;
+  std::map<Var, unsigned> varLoc;
+  
+  // multiCycles
+  std::vector< ref<Expr> > internalStateConstraints;
+  int internalStateCount;
+  std::vector<std::string> OR1200Inputs;
+  std::vector<std::string> OR1200InternalStates;
+  std::vector<int> resetValues;
+  std::vector<int> lastValues;
+
   /// Used to track states that have been added during the current
   /// instructions step. 
   /// \invariant \ref addedStates is a subset of \ref states. 
   /// \invariant \ref addedStates and \ref removedStates are disjoint.
-  std::set<ExecutionState*> addedStates;
+  std::vector<ExecutionState *> addedStates;
   /// Used to track states that have been removed during the current
   /// instructions step. 
   /// \invariant \ref removedStates is a subset of \ref states. 
   /// \invariant \ref addedStates and \ref removedStates are disjoint.
-  std::set<ExecutionState*> removedStates;
+  std::vector<ExecutionState *> removedStates;
 
   /// When non-empty the Executor is running in "seed" mode. The
   /// states in this map will be executed in an arbitrary order
@@ -150,10 +228,10 @@ private:
 
   /// When non-null the bindings that will be used for calls to
   /// klee_make_symbolic in order replay.
-  const struct KTest *replayOut;
+  const struct KTest *replayKTest;
   /// When non-null a list of branch decisions to be used for replay.
   const std::vector<bool> *replayPath;
-  /// The index into the current \ref replayOut or \ref replayPath
+  /// The index into the current \ref replayKTest or \ref replayPath
   /// object.
   unsigned replayPosition;
 
@@ -183,12 +261,22 @@ private:
   /// Assumes ownership of the created array objects
   ArrayCache arrayCache;
 
+  /// File to print executed instructions to
+  llvm::raw_ostream *debugInstFile;
+
+  // @brief Buffer used by logBuffer
+  std::string debugBufferString;
+
+  // @brief buffer to store logs before flushing to file
+  llvm::raw_string_ostream debugLogBuffer;
+
   llvm::Function* getTargetFunction(llvm::Value *calledVal,
                                     ExecutionState &state);
   
   void executeInstruction(ExecutionState &state, KInstruction *ki);
 
-  void printFileLine(ExecutionState &state, KInstruction *ki);
+  void printFileLine(ExecutionState &state, KInstruction *ki,
+                     llvm::raw_ostream &file);
 
   void run(ExecutionState &initialState);
 
@@ -351,6 +439,8 @@ private:
   const InstructionInfo & getLastNonKleeInternalInstruction(const ExecutionState &state,
       llvm::Instruction** lastInstruction);
 
+  bool shouldExitOn(enum TerminateReason termReason);
+
   // remove state from queue and delete
   void terminateState(ExecutionState &state);
   // call exit handler and terminate state
@@ -358,10 +448,10 @@ private:
   // call exit handler and terminate state
   void terminateStateOnExit(ExecutionState &state);
   // call error handler and terminate state
-  void terminateStateOnError(ExecutionState &state, 
-                             const llvm::Twine &message,
-                             const char *suffix,
-                             const llvm::Twine &longMessage="");
+  void terminateStateOnError(ExecutionState &state, const llvm::Twine &message,
+                             enum TerminateReason termReason,
+                             const char *suffix = NULL,
+                             const llvm::Twine &longMessage = "");
 
   // call error handler and terminate state, for execution errors
   // (things that should not be possible, like illegal instruction or
@@ -369,7 +459,7 @@ private:
   void terminateStateOnExecError(ExecutionState &state, 
                                  const llvm::Twine &message,
                                  const llvm::Twine &info="") {
-    terminateStateOnError(state, message, "exec.err", info);
+    terminateStateOnError(state, message, Exec, NULL, info);
   }
 
   /// bindModuleConstants - Initialize the module constant table.
@@ -400,6 +490,39 @@ private:
   void processTimers(ExecutionState *current,
                      double maxInstTime);
   void checkMemoryUsage();
+  void printDebugInstructions(ExecutionState &state);
+  void doDumpStates();
+
+  // ExecutorCoI
+  bool coiAnalysis();
+  bool getKleeAssertVars();
+  void getCalledFuncName();
+  bool isOutOfCoI(CallInst *callInst);
+  void printRemainInstrSet();
+  void printInstrInFunc(std::string funcName);
+  void printInstrCountForCoI();
+  void printIndependentVars();
+  void printIndependentVarsFromAssert();
+  void printAllInstructions();
+  void initCarryVars();
+
+  // ExecutorPrune
+  snapshot createSnapshot(ExecutionState &state);
+  bool isDuplicate(snapshot sn);
+  void addtoSnapshotHistory(snapshot sn);
+  void enablePrune();
+  void printSnapshot(snapshot &sn);
+  bool atBBLPoint(KInstruction *ki);
+
+  // ExecutorMultiCycles
+  bool pathConstraintSatisfied(ExecutionState &state);
+  void retrieveConstraints(KInstruction *ki, ref<Expr> value);
+  ref<Expr> replaceReadExpr(const ref<Expr> &a);
+  int getIndex(std::string s);
+  void buildSignalMap();
+  bool checkValidation(int value, int ind);
+  bool checkSame(int value, int ind);
+
 
 public:
   Executor(const InterpreterOptions &opts, InterpreterHandler *ie);
@@ -417,16 +540,16 @@ public:
   }
   virtual void setSymbolicPathWriter(TreeStreamWriter *tsw) {
     symPathWriter = tsw;
-  }      
+  }
 
-  virtual void setReplayOut(const struct KTest *out) {
+  virtual void setReplayKTest(const struct KTest *out) {
     assert(!replayPath && "cannot replay both buffer and path");
-    replayOut = out;
+    replayKTest = out;
     replayPosition = 0;
   }
 
   virtual void setReplayPath(const std::vector<bool> *path) {
-    assert(!replayOut && "cannot replay both buffer and path");
+    assert(!replayKTest && "cannot replay both buffer and path");
     replayPath = path;
     replayPosition = 0;
   }

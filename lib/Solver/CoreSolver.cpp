@@ -15,14 +15,9 @@
 
 #ifdef ENABLE_METASMT
 
-#include <metaSMT/frontend/Array.hpp>
+#include <metaSMT/DirectSolver_Context.hpp>
 #include <metaSMT/backend/Z3_Backend.hpp>
 #include <metaSMT/backend/Boolector.hpp>
-#include <metaSMT/backend/MiniSAT.hpp>
-#include <metaSMT/DirectSolver_Context.hpp>
-#include <metaSMT/support/run_algorithm.hpp>
-#include <metaSMT/API/Stack.hpp>
-#include <metaSMT/API/Group.hpp>
 
 #define Expr VCExpr
 #define Type VCType
@@ -88,11 +83,15 @@ Solver *createCoreSolver(CoreSolverType cst) {
     return createDummySolver();
   case Z3_SOLVER:
 #ifdef ENABLE_Z3
+    llvm::errs() << "Using Z3 solver backend\n";
     return new Z3Solver();
 #else
     llvm::errs() << "Not compiled with Z3 support\n";
     return NULL;
 #endif
+  case NO_SOLVER:
+    llvm::errs() << "Invalid solver\n";
+    return NULL;
   default:
     llvm_unreachable("Unsupported CoreSolverType");
   }

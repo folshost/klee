@@ -94,6 +94,14 @@ void klee_make_symbolic(void *array, size_t nbytes, const char *name) {
   }
 }
 
+unsigned klee_assert_success(int x) {
+  return 0;
+}
+
+unsigned klee_assert_failure(int x){
+  return 0;
+}
+
 void klee_silent_exit(int x) {
   exit(x);
 }

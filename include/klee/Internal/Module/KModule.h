@@ -49,6 +49,7 @@ namespace klee {
     KInstruction **instructions;
 
     std::map<llvm::BasicBlock*, unsigned> basicBlockEntry;
+    std::map<llvm::Instruction*, unsigned> instrIdMap;
 
     /// Whether instructions in this function should count as
     /// "coverable" for statistics and search heuristics.

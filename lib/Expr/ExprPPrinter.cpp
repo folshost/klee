@@ -515,7 +515,7 @@ void ExprPPrinter::printQuery(llvm::raw_ostream &os,
   }
 
   PC << "(query [";
-  
+ 
   // Ident at constraint list;
   unsigned indent = PC.pos;
   for (ConstraintManager::const_iterator it = constraints.begin(),

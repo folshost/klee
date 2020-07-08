@@ -100,6 +100,8 @@ namespace klee {
     HANDLER(handleAbort);
     HANDLER(handleAssert);
     HANDLER(handleAssertFail);
+    HANDLER(handleAssertSuccess);
+    HANDLER(handleAssertFailure);
     HANDLER(handleAssume);
     HANDLER(handleCalloc);
     HANDLER(handleCheckMemoryAccess);

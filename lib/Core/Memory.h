@@ -233,7 +233,7 @@ private:
   void markByteFlushed(unsigned offset);
   void markByteUnflushed(unsigned offset);
   void setKnownSymbolic(unsigned offset, Expr *value);
-
+public:
   void print();
   ArrayCache *getArrayCache() const;
 };

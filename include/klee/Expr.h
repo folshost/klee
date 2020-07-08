@@ -261,9 +261,12 @@ public:
 struct Expr::CreateArg {
   ref<Expr> expr;
   Width width;
+  unsigned offset;
   
-  CreateArg(Width w = Bool) : expr(0), width(w) {}
-  CreateArg(ref<Expr> e) : expr(e), width(Expr::InvalidWidth) {}
+  CreateArg(Width w = Bool) : expr(0), width(w), offset(0) {}
+  CreateArg(ref<Expr> e) : expr(e), width(Expr::InvalidWidth), offset(0) {}
+  CreateArg(ref<Expr> e, unsigned o) : expr(e), width(Expr::InvalidWidth), 
+                                            offset(o) {}
   
   bool isExpr() { return !isWidth(); }
   bool isWidth() { return width != Expr::InvalidWidth; }

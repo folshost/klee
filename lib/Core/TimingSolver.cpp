@@ -26,6 +26,8 @@ using namespace llvm;
 
 bool TimingSolver::evaluate(const ExecutionState& state, ref<Expr> expr,
                             Solver::Validity &result) {
+//  outs() << "Evaluate\n";
+//  outs() << expr << "\n";
   // Fast path, to avoid timer and OS overhead.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(expr)) {
     result = CE->isTrue() ? Solver::True : Solver::False;
@@ -41,6 +43,15 @@ bool TimingSolver::evaluate(const ExecutionState& state, ref<Expr> expr,
 
   sys::TimeValue delta = util::getWallTimeVal();
   delta -= now;
+
+  if (result > 0) {
+    stats::querySuccTime += delta.usec();
+    ++stats::succQueries; 
+  } else {
+    stats::queryFailTime += delta.usec();
+    ++stats::failQueries;
+  }
+
   stats::solverTime += delta.usec();
   state.queryCost += delta.usec()/1000000.;
 
@@ -49,6 +60,8 @@ bool TimingSolver::evaluate(const ExecutionState& state, ref<Expr> expr,
 
 bool TimingSolver::mustBeTrue(const ExecutionState& state, ref<Expr> expr, 
                               bool &result) {
+//  outs() << "MustBeTrue\n";
+//  outs() << expr << "\n";
   // Fast path, to avoid timer and OS overhead.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(expr)) {
     result = CE->isTrue() ? true : false;

@@ -11,6 +11,7 @@
 
 #include "MetaSMTBuilder.h"
 #include "klee/Constraints.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 #include "klee/Solver.h"
 #include "klee/SolverImpl.h"
 #include "klee/util/Assignment.h"
@@ -19,11 +20,15 @@
 #include <metaSMT/DirectSolver_Context.hpp>
 #include <metaSMT/backend/Z3_Backend.hpp>
 #include <metaSMT/backend/Boolector.hpp>
-#include <metaSMT/backend/MiniSAT.hpp>
-#include <metaSMT/support/run_algorithm.hpp>
-#include <metaSMT/API/Stack.hpp>
-#include <metaSMT/API/Group.hpp>
 
+#define Expr VCExpr
+#define Type VCType
+#define STP STP_Backend
+#include <metaSMT/backend/STP.hpp>
+#undef Expr
+#undef Type
+#undef STP
+  
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
@@ -277,7 +282,7 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
   fflush(stderr);
   int pid = fork();
   if (pid == -1) {
-    fprintf(stderr, "error: fork failed (for metaSMT)");
+    klee_warning("fork failed (for metaSMT)");
     return (SolverImpl::SOLVER_RUN_STATUS_FORK_FAILED);
   }
 
@@ -384,7 +389,7 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
     } while (res < 0 && errno == EINTR);
 
     if (res < 0) {
-      fprintf(stderr, "error: waitpid() for metaSMT failed");
+      klee_warning("waitpid() for metaSMT failed");
       return (SolverImpl::SOLVER_RUN_STATUS_WAITPID_FAILED);
     }
 
@@ -392,9 +397,9 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
     // "occasion" return a status when the process was terminated by a
     // signal, so test signal first.
     if (WIFSIGNALED(status) || !WIFEXITED(status)) {
-      fprintf(stderr,
-              "error: metaSMT did not return successfully (status = %d) \n",
-              WTERMSIG(status));
+      klee_warning(
+          "error: metaSMT did not return successfully (status = %d) \n",
+          WTERMSIG(status));
       return (SolverImpl::SOLVER_RUN_STATUS_INTERRUPTED);
     }
 
@@ -404,10 +409,10 @@ MetaSMTSolverImpl<SolverContext>::runAndGetCexForked(
     } else if (exitcode == 1) {
       hasSolution = false;
     } else if (exitcode == 52) {
-      fprintf(stderr, "error: metaSMT timed out");
+      klee_warning("metaSMT timed out");
       return (SolverImpl::SOLVER_RUN_STATUS_TIMEOUT);
     } else {
-      fprintf(stderr, "error: metaSMT did not return a recognized code");
+      klee_warning("metaSMT did not return a recognized code");
       return (SolverImpl::SOLVER_RUN_STATUS_UNEXPECTED_EXIT_CODE);
     }
 
